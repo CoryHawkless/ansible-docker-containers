@@ -1,0 +1,143 @@
+#- name: "Checking docker volume {{working_volume_name}}"
+#  debug: msg="Checking docker volume {{working_volume_name}}"
+
+
+#----------------------------------CephFS Volume----------------------------------
+- set_fact: base_volume_name="cephFS_"
+  tags: always
+
+- name: Set working_volume_name(staticName not defined)
+  set_fact: working_volume_name="{{base_volume_name+container_Name + '_' + item.value.volumeName}}"
+  when: item.value.staticName is not defined
+  tags: always
+
+- name: Set working_volume_name(staticName IS defined)
+  set_fact: working_volume_name={{item.value.staticName}}
+  when: item.value.staticName is defined
+  tags: always
+
+- name: "Create {{ containerConfigDir }}/docker/cephFS"
+  file:
+    path: "{{containerConfigDir}}/docker/cephFS"
+    state: directory
+    recurse: no
+  when: item.value.type=="cephfs"
+  tags: always
+
+- name: "Create {{ containerConfigDir }}/docker/configs"
+  file:
+    path: "{{containerConfigDir}}/docker/configs"
+    state: directory
+    recurse: no
+  when: item.value.type=="cephfs"
+  tags: always
+
+- name: Add CephFS mount to fstab
+  lineinfile:
+    dest=/etc/fstab
+    backup=yes
+    state=present
+    line='none    {{containerConfigDir}}/docker/cephFS  fuse.ceph ceph.id=admin,_netdev,defaults  0 0'
+  register: fstab
+  tags: mount,always
+  when: item.value.type=="cephfs"
+
+
+- name: Mount FSTab
+  shell: "mount -a"
+  args:
+    warn: false
+  when: fstab.changed
+  tags: mount,always
+
+- name: "Checking docker volume "
+  debug: msg="CephFS user {{ cephFS_user }} secret {{ cephFS_secret }}"
+  when: item.value.type=="cephfs"
+  tags: always
+
+- name: "Create docker volume - {{ working_volume_name }}"
+  docker_volume:
+    name: "{{ working_volume_name }}"
+    driver:  n0r1skcom/docker-volume-cephfs
+    driver_options:
+       name="{{cephFS_user}}"
+       path="/container/{{working_volume_name}}"
+       secret="{{cephFS_secret}}"
+       monitors="{{ceph_Mons}}"
+  register: dockerVolume
+  tags: volume,always
+  when: item.value.type=="cephfs"
+
+# This is needed so that when Docker goes to mount the volume, the folder it's looking for actually exists
+- name: Create {{containerConfigDir}}/docker/cephFS/container/{{working_volume_name}}
+  file:
+    path: "{{containerConfigDir}}/docker/cephFS/container/{{working_volume_name}}"
+    state: directory
+    recurse: no
+  when: dockerVolume.changed
+  tags: volume,always
+  when: item.value.type=="cephfs"
+
+- name: Append the volume to the container mapping list(mappings var defined in dockerContainer.yml)
+  set_fact:
+    mappings: "{{ mappings  + [ working_volume_name + ':' + item.value.dest + ':' + item.value.params | default('rw')  ] }}"
+  when: item.value.type=="cephfs"
+  tags: always
+#----------------------------------/CephFS Volume----------------------------------
+
+#----------------------------------Local Volume----------------------------------
+- set_fact: base_volume_name="local_"
+- name: Set working_volume_name(staticName not defined)
+  set_fact: working_volume_name="{{base_volume_name+container_Name + '_' + item.value.volumeName}}"
+  when: item.value.staticName is not defined
+  tags: always
+
+- name: Set working_volume_name(staticName IS defined)
+  set_fact: working_volume_name={{item.value.staticName}}
+  when: item.value.staticName is defined
+  tags: always
+
+- name: "Create {{ containerConfigDir }}/docker/local"
+  file:
+    path: "{{containerConfigDir}}/docker/local"
+    state: directory
+    recurse: no
+  when: item.value.type=="local"
+  tags: always
+
+- name: "Create {{ containerConfigDir }}/docker/configs"
+  file:
+    path: "{{containerConfigDir}}/docker/configs"
+    state: directory
+    recurse: no
+  when: item.value.type=="local"
+  tags: always
+
+- name: "Create docker volume - {{ working_volume_name }}"
+  docker_volume:
+    name: "{{ working_volume_name }}"
+    driver: "local"
+    driver_options:
+       o: "bind"
+       device: "{{containerConfigDir}}/docker/local/container/{{working_volume_name}}"
+       type: "none"
+  register: dockerVolume
+  tags: volume,always
+  when: item.value.type=="local"
+
+# This is needed so that when Docker goes to mount the volume, the folder it's looking for actually exists
+- name: Create {{containerConfigDir}}/docker/local/container/{{working_volume_name}}
+  file:
+    path: "{{containerConfigDir}}/docker/local/container/{{working_volume_name}}"
+    state: directory
+    recurse: no
+  when: dockerVolume.changed
+  tags: volume,always
+  when: item.value.type=="local"
+
+- name: Append the volume to the container mapping list(mappings var defined in dockerContainer.yml)
+  set_fact:
+    mappings: "{{ mappings  + [ working_volume_name + ':' + item.value.dest + ':' + item.value.params | default('rw')  ] }}"
+  when: item.value.type=="local"
+  tags: always
+#----------------------------------/Local Volume----------------------------------

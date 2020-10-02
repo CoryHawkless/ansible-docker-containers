@@ -1,0 +1,7 @@
+- debug: msg="{{item.value.mappings.volumes}}"
+  tags: always
+
+- name: "Volume mappings for {{container_Name}}"
+  include: dockerVolume.yml
+  with_dict: "{{item.value.mappings.volumes}}"
+  tags: always
