@@ -5,17 +5,17 @@
 
 
 # Container name always equals the Dict name
-- set_fact: container_Name="{{item.value.name | default(item.key)}}"
+- set_fact: container_Name="{{ item.value.name | default(item.key) }}"
   tags: always
 # Container hostname is the container name by default but can be overridden by setting 'hostname'
-- set_fact: container_hostname="{{item.value.hostname | default (container_Name)}}"
+- set_fact: container_hostname="{{ item.value.hostname | default (container_Name) }}"
   tags: always
-- set_fact: container_configDir="{{containerConfigDir}}/container-configs/{{container_Name}}/"
+- set_fact: container_configDir="{{ containerConfigDir }}/container-configs/{{ container_Name }}/"
   tags: always
 # Create the config storage directory if it doesnt already exist
 - name: "Create config dir"
   file:
-    path: "{{container_configDir}}"
+    path: "{{ container_configDir }}"
     state: directory
   tags: always
 
@@ -26,7 +26,7 @@
   when: item.value.networks is not defined
   tags: always
 - name: Copy network variables into config
-  set_fact: net_checked="{{item.value.networks}}"
+  set_fact: net_checked="{{ item.value.networks }}"
   when: item.value.networks is defined
   tags: always
 
@@ -46,9 +46,9 @@
     volumes_Defined: 1
   when: item.value.mappings.volumes is defined
   tags: always
-- name: "Volume mappings for {{container_Name}}"
+- name: "Volume mappings for {{ container_Name }}"
   include: dockerVolume.yml
-  with_dict: "{{item.value.mappings.volumes}}"
+  with_dict: "{{ item.value.mappings.volumes }}"
   when: volumes_Defined == 1
   tags: always
 #Note, the volume gets added to the mapping list in the dockerVolume.yml file becuase in there it knows the actual name of the volume
@@ -68,25 +68,25 @@
 #- debug: msg="Templates not defined"
 #  when: templates_Defined is not defined
 #
-#- debug: msg="{{item.value.mappings.templates}}"
+#- debug: msg="{{ item.value.mappings.templates }}"
 
-  #Copy all of the defined templates to the container host into the {{container_configDir}} ready for mapping to the container later
-- name: "Template mappings for {{container_Name}}"
+  #Copy all of the defined templates to the container host into the {{ container_configDir }} ready for mapping to the container later
+- name: "Template mappings for {{ container_Name }}"
   #Files will be copied to the 'config' dir as defined by container_configDir, they will be stored using their template file name but with the '.j2' stripped
   #Need to ensure  you dont have duplicate files names here
-  template: src="{{container_Name}}/{{outer_item.value.src}}" dest="{{container_configDir}}/{{outer_item.value.src.split(".j2")[0]}}" mode=0644
-  with_dict: "{{item.value.mappings.templates}}"
+  template: src="{{ container_Name }}/{{ outer_item.value.src }}" dest="{{ container_configDir }}/{{ outer_item.value.src.split(".j2")[0] }}" mode=0644
+  with_dict: "{{ item.value.mappings.templates }}"
   loop_control:
     loop_var: outer_item
   when: templates_Defined ==1 and outer_item.value.generic is not defined
   tags: always
 
   #Copy templates form a generic dir, allow ansible to search
-- name: "Generic template mappings for {{container_Name}}"
+- name: "Generic template mappings for {{ container_Name }}"
   #Files will be copied to the 'config' dir as defined by container_configDir, they will be stored using their template file name but with the '.j2' stripped
   #Need to ensure  you dont have duplicate files names here
-  template: src="{{outer_item.value.src}}" dest="{{container_configDir}}/{{outer_item.value.src.split(".j2")[0]}}"  mode=0644
-  with_dict: "{{item.value.mappings.templates}}"
+  template: src="{{ outer_item.value.src }}" dest="{{ container_configDir }}/{{ outer_item.value.src.split(".j2")[0] }}"  mode=0644
+  with_dict: "{{ item.value.mappings.templates }}"
   loop_control:
     loop_var: outer_item
   when: templates_Defined ==1 and outer_item.value.generic is defined
@@ -98,7 +98,7 @@
     #Also allows the passing of 'params' which is rw or ro, defaults to rw
     #mappings: "{{ mappings  + ['type=\"bind\", source=\"' +  container_configDir +  item.value.src.split('.j2')[0] + '\",target=\"' + item.value.dest + '\",readonly=\"' + item.value.readonly | default('false') +'\"'] }}"
     mappings: "{{ mappings  + [ container_configDir +  outer_item.value.src.split('.j2')[0] + ':' + outer_item.value.dest + ':' + outer_item.value.params | default('rw') ] }}"
-  with_dict: "{{item.value.mappings.templates}}"
+  with_dict: "{{ item.value.mappings.templates }}"
   loop_control:
     loop_var: outer_item
   when: templates_Defined ==1
@@ -122,32 +122,32 @@
     files_Defined: 1
   when: item.value.mappings.files is defined
   tags: always
-#Copy all of the defined files to the container host into the {{container_configDir}} ready for mapping to the container later
-- name: "File mappings for {{container_Name}}"
+#Copy all of the defined files to the container host into the {{ container_configDir }} ready for mapping to the container later
+- name: "File mappings for {{ container_Name }}"
   #Files will be copied to the 'config' dir as defined by container_configDir, they will be stored using their file name
   #Need to ensure  you dont have duplicate files names here
-  copy: src="{{container_Name}}/{{outer_item.value.src}}" dest="{{container_configDir}}/{{outer_item.key}}"  mode=0644
-  with_dict: "{{item.value.mappings.files}}"
+  copy: src="{{ container_Name }}/{{ outer_item.value.src }}" dest="{{ container_configDir }}/{{ outer_item.key }}"  mode=0644
+  with_dict: "{{ item.value.mappings.files }}"
   loop_control:
     loop_var: outer_item
   when: files_Defined == 1 and outer_item.value.generic is not defined and outer_item.value.src_text is not defined
   tags: always
 #Copy files from a generic dir, allow ansible to search
-- name: "Generic File mappings for {{container_Name}}"
+- name: "Generic File mappings for {{ container_Name }}"
   #Files will be copied to the 'config' dir as defined by container_configDir, they will be stored using their file name
   #Need to ensure  you dont have duplicate files names here
-  copy: src="{{outer_item.value.src}}" dest="{{container_configDir}}/{{outer_item.key}}"  mode=0644
-  with_dict: "{{item.value.mappings.files}}"
+  copy: src="{{ outer_item.value.src }}" dest="{{ container_configDir }}/{{ outer_item.key }}"  mode=0644
+  with_dict: "{{ item.value.mappings.files }}"
   loop_control:
     loop_var: outer_item
   when: files_Defined == 1 and outer_item.value.generic is defined and outer_item.value.src_text is not defined
   tags: always
 #Create files based on the suplied src_text param
-- name: "Text based file creation for {{container_Name}}"
+- name: "Text based file creation for {{ container_Name }}"
   #Files will be copied to the 'config' dir as defined by container_configDir, they will be stored using their file name
   #Need to ensure  you dont have duplicate files names here
-  copy: content="{{outer_item.value.src_text}}" dest="{{container_configDir}}/{{outer_item.key}}"  mode=0644
-  with_dict: "{{item.value.mappings.files}}"
+  copy: content="{{ outer_item.value.src_text }}" dest="{{ container_configDir }}/{{ outer_item.key }}"  mode=0644
+  with_dict: "{{ item.value.mappings.files }}"
   loop_control:
     loop_var: outer_item
   when: files_Defined == 1 and outer_item.value.src_text is defined
@@ -158,7 +158,7 @@
     #build a list to pass to docker containing the source of the file(As on disk on the host) and the destination mount within the container
     #Also allows the passing of 'params' which is rw or ro, defaults to rw
     mappings: "{{ mappings  + [ container_configDir +  outer_item.key + ':' + outer_item.value.dest + ':' + outer_item.value.params | default('rw') ] }}"
-  with_dict: "{{item.value.mappings.files}}"
+  with_dict: "{{ item.value.mappings.files }}"
   loop_control:
     loop_var: outer_item
   when: files_Defined == 1
@@ -188,7 +188,7 @@
     #Also allows the passing of 'params' which is rw or ro, defaults to rw
     #mappings: "{{ mappings  + ['type=\"bind\", source=\"' +   item.value.src + '\",target=\"' + item.value.dest + '\",readonly=\"' + item.value.readonly | default('false') +'\"'] }}"
      mappings: "{{ mappings  + [ outer_item.value.src + ':' + outer_item.value.dest + ':' + outer_item.value.params | default('rw') ] }}"
-  with_dict: "{{item.value.mappings.local}}"
+  with_dict: "{{ item.value.mappings.local }}"
   loop_control:
     loop_var: outer_item
   when: local_Defined == 1
@@ -203,7 +203,7 @@
   when: item.value.env is not defined
   tags: always
 - name: Copy env variables into config
-  set_fact: env_checked="{{item.value.env}}"
+  set_fact: env_checked="{{ item.value.env }}"
   when: item.value.env is defined
   tags: always
 #----------------------------------/Check ENV----------------------------------
@@ -211,26 +211,26 @@
 
 
 
-- name: "Container {{container_Name}}"
+- name: "Container {{ container_Name }}"
   become: yes
   docker_container:
-    name: "{{container_Name}}"
-    hostname: "{{item.value.hostname | default(container_Name)}}"
-    command: "{{item.value.command | default('') }}"
-    pull: "{{item.value.pull | default('false') }}"
-    recreate: "{{item.value.recreate | default('false') }}"
-    image: "{{item.value.image}}"
-    state: "{{item.value.start | default ('started')}}"
-    restart: "{{item.value.restart | default ('no')}}"
-    restart_policy: "{{item.value.restart_policy | default ('always')}}"
-    purge_networks: "{{item.value.purge_networks | default ('yes')}}"
-    networks: "{{net_checked}}"
-    volumes: "{{mappings}}"
-    env: "{{env_checked}}"
-    privileged: "{{item.value.privileged | default ('no')}}"
-    network_mode: "{{item.value.network_mode | default ('default')}}"
-    shm_size: "{{item.value.shm_size | default ('64M')}}"
-    ports: "{{item.value.ports | default ([])}}"
+    name: "{{ container_Name }}"
+    hostname: "{{ item.value.hostname | default(container_Name) }}"
+    command: "{{ item.value.command | default('') }}"
+    pull: "{{ item.value.pull | default('false') }}"
+    recreate: "{{ item.value.recreate | default('false') }}"
+    image: "{{ item.value.image }}"
+    state: "{{ item.value.start | default ('started') }}"
+    restart: "{{ item.value.restart | default ('no') }}"
+    restart_policy: "{{ item.value.restart_policy | default ('always') }}"
+    purge_networks: "{{ item.value.purge_networks | default ('yes') }}"
+    networks: "{{ net_checked }}"
+    volumes: "{{ mappings }}"
+    env: "{{ env_checked }}"
+    privileged: "{{ item.value.privileged | default ('no') }}"
+    network_mode: "{{ item.value.network_mode | default ('default') }}"
+    shm_size: "{{ item.value.shm_size | default ('64M') }}"
+    ports: "{{ item.value.ports | default ([]) }}"
     #log_driver: fluentd
     #"{{item.value.ports | default ([json-file])}}"
     #log_options:
